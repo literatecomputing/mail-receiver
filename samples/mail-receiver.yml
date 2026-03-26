@@ -1,0 +1,60 @@
+## Literatecomputing mail-receiver container configuration
+##
+## After making changes to this file, run:
+##   /var/discourse/launcher rebuild mail-receiver
+##
+## BE *VERY* CAREFUL WHEN EDITING!
+## YAML FILES ARE SUPER SUPER SENSITIVE TO MISTAKES IN WHITESPACE OR ALIGNMENT!
+## visit http://www.yamllint.com/ to validate this file as needed
+
+base_image: ghcr.io/literatecomputing/mail-receiver:release
+update_pups: false
+
+expose:
+  - "25:25"   # SMTP
+
+env:
+  LC_ALL: en_US.UTF-8
+  LANG: en_US.UTF-8
+  LANGUAGE: en_US.UTF-8
+
+  ## Space-separated list of domains to accept mail for.
+  MAIL_DOMAIN: "forum1.com forum2.net"
+
+  ## Hostname of this mail server. All forum domains should have MX records
+  ## pointing here. A Let's Encrypt certificate will be obtained automatically
+  ## via Cloudflare DNS — no port 80 required.
+  MAIL_HOSTNAME: mail.literatehosting.net
+
+  ## Email address for Let's Encrypt registration and expiry notices.
+  LETSENCRYPT_EMAIL: you@example.com
+
+  ## Cloudflare API token with Zone / DNS / Edit permission scoped to the
+  ## zone containing MAIL_HOSTNAME.
+  CLOUDFLARE_API_TOKEN: your-cloudflare-token
+
+  ## Per-domain Discourse connection details.
+  ## Variable names are formed by uppercasing the domain and replacing
+  ## dots and hyphens with underscores, e.g. forum1.com -> FORUM1_COM.
+  ##
+  ## Add one pair of lines per forum:
+  DISCOURSE_BASE_URL_FORUM1_COM: 'https://forum1.com'
+  DISCOURSE_API_KEY_FORUM1_COM: your-api-key-for-forum1
+
+  DISCOURSE_BASE_URL_FORUM2_NET: 'https://forum2.net'
+  DISCOURSE_API_KEY_FORUM2_NET: your-api-key-for-forum2
+
+  ## The Discourse username used for API requests. Unless you have renamed
+  ## the system user, leave this as-is. Can be overridden per domain with
+  ## e.g. DISCOURSE_API_USERNAME_FORUM1_COM.
+  DISCOURSE_API_USERNAME: system
+
+volumes:
+  - volume:
+      host: /var/discourse/shared/mail-receiver/postfix-spool
+      guest: /var/spool/postfix
+  ## Mount for cert persistence — certs survive container restarts and are
+  ## not re-issued on every start.
+  - volume:
+      host: /var/discourse/shared/mail-receiver/letsencrypt
+      guest: /etc/letsencrypt
