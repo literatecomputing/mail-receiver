@@ -28,18 +28,43 @@ for d in $MAIL_DOMAIN; do
 done
 /usr/sbin/postmap /etc/postfix/transport
 
-# Make sure the necessary Discourse connection details are in place
-for v in DISCOURSE_API_KEY DISCOURSE_API_USERNAME; do
-	if [ -z "${!v}" ]; then
-		echo "FATAL ERROR: $v env var is not set." >&2
-		exit 1
-	fi
-done
+# Validate config and generate per-domain environment files.
+#
+# Per-domain overrides use the domain name with dots and hyphens replaced by
+# underscores, uppercased, appended to the var name.  For example, for domain
+# "site1.com" set DISCOURSE_BASE_URL_SITE1_COM, DISCOURSE_API_KEY_SITE1_COM,
+# and DISCOURSE_API_USERNAME_SITE1_COM.  Any var not set at the domain level
+# falls back to the global value.
+ruby -rjson << 'RUBY' || exit 1
+  env = ENV.to_hash
+  domains = ENV['MAIL_DOMAIN'].split
+  errors = []
 
-if [ -z "$DISCOURSE_BASE_URL" ] && [ -z "$DISCOURSE_MAIL_ENDPOINT" ] ; then
-	echo "FATAL ERROR: You need to define DISCOURSE_BASE_URL or DISCOURSE_MAIL_ENDPOINT" >&2
-	exit 1
-fi
+  domains.each do |domain|
+    suffix = domain.tr('.-', '_').upcase
+    domain_env = env.dup
+
+    %w[DISCOURSE_BASE_URL DISCOURSE_MAIL_ENDPOINT DISCOURSE_API_KEY DISCOURSE_API_USERNAME BLACKLISTED_SENDER_DOMAINS].each do |key|
+      domain_key = "#{key}_#{suffix}"
+      domain_env[key] = env[domain_key] if env[domain_key]
+    end
+
+    %w[DISCOURSE_API_KEY DISCOURSE_API_USERNAME].each do |key|
+      errors << "#{domain}: #{key} is not set" unless domain_env[key]
+    end
+    unless domain_env['DISCOURSE_BASE_URL'] || domain_env['DISCOURSE_MAIL_ENDPOINT']
+      errors << "#{domain}: DISCOURSE_BASE_URL or DISCOURSE_MAIL_ENDPOINT is not set"
+    end
+
+    File.write("/etc/postfix/mail-receiver-environment-#{domain}.json", domain_env.to_json)
+    STDERR.puts "Generated config for #{domain}"
+  end
+
+  unless errors.empty?
+    errors.each { |e| STDERR.puts "FATAL ERROR: #{e}" }
+    exit 1
+  end
+RUBY
 
 # Generic postfix config setting code... bashers gonna bash.
 for envvar in $(compgen -v); do

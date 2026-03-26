@@ -34,6 +34,40 @@ complicated setup, the following subsections may provide you with the power
 you need.
 
 
+## Multi-site configuration
+
+A single mail-receiver container can deliver mail to multiple Discourse
+instances.  List all domains in `MAIL_DOMAIN` and provide per-domain
+overrides for the connection variables.
+
+Per-domain variable names are formed by appending an underscore and the
+domain name — with dots and hyphens replaced by underscores, uppercased —
+to the standard variable name.  For example, for `site1.com`:
+
+* `DISCOURSE_BASE_URL_SITE1_COM`
+* `DISCOURSE_API_KEY_SITE1_COM`
+* `DISCOURSE_API_USERNAME_SITE1_COM` (optional, falls back to global)
+* `BLACKLISTED_SENDER_DOMAINS_SITE1_COM` (optional, falls back to global)
+
+A minimal two-site example:
+
+```
+MAIL_DOMAIN="site1.com site2.net"
+
+DISCOURSE_BASE_URL_SITE1_COM=https://site1.com
+DISCOURSE_API_KEY_SITE1_COM=key-for-site1
+
+DISCOURSE_BASE_URL_SITE2_NET=https://site2.net
+DISCOURSE_API_KEY_SITE2_NET=key-for-site2
+
+# Shared across all sites that don't override it
+DISCOURSE_API_USERNAME=system
+```
+
+Any variable not set at the domain level falls back to the global value,
+so shared settings (like `DISCOURSE_API_USERNAME`) only need to be set once.
+
+
 ## Customised Postfix configuration
 
 You can setup any Postfix configuration variables you need by setting env

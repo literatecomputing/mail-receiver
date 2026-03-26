@@ -6,6 +6,14 @@ require "net/http"
 require_relative "mail_receiver_base"
 
 class DiscourseMailReceiver < MailReceiverBase
+  ENV_DIR = "/etc/postfix"
+
+  def self.env_file_for_recipient(recipient, base_dir = ENV_DIR)
+    domain = recipient.to_s.split('@').last.to_s.downcase
+    domain_file = "#{base_dir}/mail-receiver-environment-#{domain}.json"
+    File.exist?(domain_file) ? domain_file : "#{base_dir}/mail-receiver-environment.json"
+  end
+
   def initialize(env_file = nil, recipient = nil, mail = nil)
     super(env_file)
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-ENV_FILE    = "/etc/postfix/mail-receiver-environment.json"
 EX_TEMPFAIL = 75
 EX_SUCCESS  = 0
 
@@ -9,7 +8,8 @@ require 'mail_receiver/discourse_mail_receiver'
 
 if __FILE__ == $0
   begin
-    receiver = DiscourseMailReceiver.new(ENV_FILE, ARGV.first, $stdin.read)
+    env_file = DiscourseMailReceiver.env_file_for_recipient(ARGV.first)
+    receiver = DiscourseMailReceiver.new(env_file, ARGV.first, $stdin.read)
     exit (receiver.process == :success) ? EX_SUCCESS : EX_TEMPFAIL
 
   rescue StandardError => ex

@@ -48,4 +48,32 @@ RSpec.describe DiscourseMailReceiver do
     receiver = described_class.new(file_for(:standard), "eviltrout@example.com", "test mail")
     expect(receiver.process).to eq(:failure)
   end
+
+  describe ".env_file_for_recipient" do
+    let(:fixtures_dir) { File.expand_path("../fixtures", __dir__) }
+
+    it "returns domain-specific file when it exists" do
+      allow(File).to receive(:exist?).and_call_original
+      domain_file = "#{fixtures_dir}/mail-receiver-environment-site1.example.com.json"
+      allow(File).to receive(:exist?).with(domain_file).and_return(true)
+      expect(described_class.env_file_for_recipient("user@site1.example.com", fixtures_dir)).to eq(domain_file)
+    end
+
+    it "falls back to global env file when domain-specific file doesn't exist" do
+      allow(File).to receive(:exist?).and_call_original
+      domain_file = "#{fixtures_dir}/mail-receiver-environment-unknown.com.json"
+      allow(File).to receive(:exist?).with(domain_file).and_return(false)
+      expect(described_class.env_file_for_recipient("user@unknown.com", fixtures_dir)).to eq(
+        "#{fixtures_dir}/mail-receiver-environment.json",
+      )
+    end
+
+    it "handles recipients without an @ sign" do
+      allow(File).to receive(:exist?).and_call_original
+      allow(File).to receive(:exist?).with("#{fixtures_dir}/mail-receiver-environment-.json").and_return(false)
+      expect(described_class.env_file_for_recipient("no-at-sign", fixtures_dir)).to eq(
+        "#{fixtures_dir}/mail-receiver-environment.json",
+      )
+    end
+  end
 end
