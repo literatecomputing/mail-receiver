@@ -86,6 +86,34 @@ docker build --build-arg INCLUDE_DMARC=true -t local_discourse/mail-receiver:lat
 ```
 Configurations for these checks are stored in their respective configuration files `policyd-spf.conf`, `opendkim.conf`, `opendmarc.conf` in this repository.
 
+## TLS with Let's Encrypt (Cloudflare DNS)
+
+To enable TLS, set three additional environment variables and mount a volume
+for cert persistence:
+
+* `MAIL_HOSTNAME` -- the hostname of this mail server (e.g.
+  `mail.literatehosting.net`).  Your forum domains should have MX records
+  pointing here.  A Let's Encrypt certificate will be obtained for this
+  hostname using the Cloudflare DNS-01 challenge, so no port 80 is required.
+
+* `LETSENCRYPT_EMAIL` -- email address for Let's Encrypt registration and
+  expiry notices.
+
+* `CLOUDFLARE_API_TOKEN` -- a Cloudflare API token with `Zone / DNS / Edit`
+  permission scoped to the zone containing `MAIL_HOSTNAME`.
+
+Mount `/etc/letsencrypt` as a named volume so the certificate survives
+container restarts and is not re-issued on every start:
+
+    -v mail-receiver-certs:/etc/letsencrypt
+
+The certificate is obtained on first boot if not already present and renewed
+automatically in the background (checked daily, renewed when <30 days remain).
+
+Setting `MAIL_HOSTNAME` also sets Postfix's `myhostname`, so the SMTP banner
+will correctly identify your mail server.
+
+
 ## Blacklisting sender domains
 
 The `BLACKLISTED_SENDER_DOMAINS` environment variable accepts a

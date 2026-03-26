@@ -85,6 +85,51 @@ if [ "$INCLUDE_DMARC" = "true" ]; then
   /usr/sbin/opendmarc -c /etc/opendmarc.conf
 fi
 
+# TLS via Let's Encrypt (Cloudflare DNS-01 challenge).
+# Set MAIL_HOSTNAME, LETSENCRYPT_EMAIL, and CLOUDFLARE_API_TOKEN to enable.
+if [ -n "$MAIL_HOSTNAME" ]; then
+	if [ -z "$LETSENCRYPT_EMAIL" ]; then
+		echo "FATAL ERROR: LETSENCRYPT_EMAIL is required when MAIL_HOSTNAME is set." >&2
+		exit 1
+	fi
+	if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+		echo "FATAL ERROR: CLOUDFLARE_API_TOKEN is required when MAIL_HOSTNAME is set." >&2
+		exit 1
+	fi
+
+	/usr/sbin/postconf -e myhostname="$MAIL_HOSTNAME"
+
+	# Write Cloudflare credentials (needed for both issuance and renewal)
+	printf 'dns_cloudflare_api_token = %s\n' "$CLOUDFLARE_API_TOKEN" > /etc/cloudflare.ini
+	chmod 600 /etc/cloudflare.ini
+
+	if [ ! -f "/etc/letsencrypt/live/$MAIL_HOSTNAME/fullchain.pem" ]; then
+		echo "Obtaining Let's Encrypt certificate for $MAIL_HOSTNAME..." >&2
+		certbot certonly \
+			--dns-cloudflare \
+			--dns-cloudflare-credentials /etc/cloudflare.ini \
+			--dns-cloudflare-propagation-seconds 60 \
+			--non-interactive \
+			--agree-tos \
+			-m "$LETSENCRYPT_EMAIL" \
+			-d "$MAIL_HOSTNAME" >&2
+	fi
+
+	/usr/sbin/postconf -e smtpd_tls_cert_file="/etc/letsencrypt/live/$MAIL_HOSTNAME/fullchain.pem"
+	/usr/sbin/postconf -e smtpd_tls_key_file="/etc/letsencrypt/live/$MAIL_HOSTNAME/privkey.pem"
+	/usr/sbin/postconf -e smtpd_tls_security_level=may
+	/usr/sbin/postconf -e smtpd_tls_loglevel=1
+
+	# Check for renewal daily in the background
+	(while true; do
+		sleep 86400
+		certbot renew \
+			--dns-cloudflare \
+			--dns-cloudflare-credentials /etc/cloudflare.ini \
+			--quiet >&2
+	done) &
+fi
+
 # Now, make sure that the Postfix filesystem environment is sane
 mkdir -p -m 0755 /var/spool/postfix/pid
 chown root:root /var/spool/postfix

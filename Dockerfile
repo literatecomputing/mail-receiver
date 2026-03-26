@@ -4,7 +4,7 @@ ARG INCLUDE_DMARC=true
 ENV INCLUDE_DMARC=${INCLUDE_DMARC}
 
 RUN DEBIAN_FRONTEND=noninteractive apt update \
-	&& DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends curl perl postfix ruby socat \
+	&& DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends curl perl postfix ruby socat certbot python3-certbot-dns-cloudflare \
     && if [ "$INCLUDE_DMARC" = "true" ]; then \
          DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends opendmarc opendkim opendkim-tools postfix-policyd-spf-python; \
        fi \
@@ -13,6 +13,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt update \
 
 EXPOSE 25
 VOLUME /var/spool/postfix
+VOLUME /etc/letsencrypt
 
 RUN >/etc/postfix/main.cf \
 	&& postconf -e maillog_file=/dev/stdout \
